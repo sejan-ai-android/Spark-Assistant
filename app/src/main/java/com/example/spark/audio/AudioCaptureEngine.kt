@@ -16,13 +16,15 @@ import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 class AudioCaptureEngine(
-    private val onPcmChunkCaptured: (ByteArray) -> Unit
+    private val onPcmChunkCaptured: (ByteArray, Boolean) -> Unit
 ) {
     companion object {
         const val SAMPLE_RATE = 16000
         const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         private const val POST_UNMUTE_DECAY_MS = 200L
+        private const val VAD_ENERGY_THRESHOLD = 0.022f
+        private const val SPEECH_HANGOVER_MS = 600L
     }
 
     private val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
@@ -41,7 +43,11 @@ class AudioCaptureEngine(
     private val _amplitude = MutableStateFlow(0f)
     val amplitude: StateFlow<Float> = _amplitude.asStateFlow()
 
+    private val _isSpeechDetected = MutableStateFlow(false)
+    val isSpeechDetected: StateFlow<Boolean> = _isSpeechDetected.asStateFlow()
+
     private var unmuteTimestamp = 0L
+    private var lastSpeechTimestamp = 0L
 
     @SuppressLint("MissingPermission")
     fun start(): Boolean {
@@ -77,11 +83,18 @@ class AudioCaptureEngine(
                         val now = System.currentTimeMillis()
                         val isDecayActive = (now - unmuteTimestamp) < POST_UNMUTE_DECAY_MS
 
+                        if (rms >= VAD_ENERGY_THRESHOLD) {
+                            lastSpeechTimestamp = now
+                        }
+
+                        val hasRecentSpeech = (now - lastSpeechTimestamp) < SPEECH_HANGOVER_MS
+                        _isSpeechDetected.value = hasRecentSpeech
+
                         // Only emit chunk if not muted and outside echo decay window
                         if (!_isMuted.value && !isDecayActive) {
                             val chunk = ByteArray(read)
                             System.arraycopy(buffer, 0, chunk, 0, read)
-                            onPcmChunkCaptured(chunk)
+                            onPcmChunkCaptured(chunk, hasRecentSpeech)
                         }
                     }
                 }

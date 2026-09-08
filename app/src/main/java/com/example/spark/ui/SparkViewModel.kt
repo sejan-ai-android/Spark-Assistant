@@ -134,10 +134,15 @@ class SparkViewModel(application: Application) : AndroidViewModel(application) {
         // Add welcome message
         _transcripts.value = listOf(
             TranscriptMessage(
-                text = "⚡ Spark Assistant initialized. Ready for zero-friction voice commands.",
+                text = "⚡ Spark Assistant initialized. Persistent WebSocket active (No Standby).",
                 isUser = false
             )
         )
+
+        // AUTO-CONNECT: WebSocket establishes IMMEDIATELY on app launch
+        if (resolvedKey.isNotBlank()) {
+            liveService.connect(resolvedKey)
+        }
     }
 
     fun checkPermissions() {
@@ -163,21 +168,28 @@ class SparkViewModel(application: Application) : AndroidViewModel(application) {
             hasCalendar = hasCalendar
         )
         _isOverlayActive.value = SparkOverlayService.isOverlayRunning
+
+        // If audio permission is granted and key is set, ensure active streaming if currently disconnected
+        if (hasAudio && _apiKey.value.isNotBlank() && connectionState.value == ConnectionState.DISCONNECTED) {
+            liveService.reconnectNow()
+        }
+    }
+
+    fun onOrbClicked() {
+        if (connectionState.value == ConnectionState.STREAMING) {
+            // Streaming is active: toggle mic mute or trigger local speech prompt
+            toggleMute()
+        } else {
+            // Force immediate reconnect
+            val key = _apiKey.value
+            if (key.isNotBlank()) {
+                liveService.reconnectNow()
+            }
+        }
     }
 
     fun toggleVoiceStreaming() {
-        if (connectionState.value == ConnectionState.STREAMING || connectionState.value == ConnectionState.CONNECTED) {
-            liveService.disconnect()
-        } else {
-            val key = _apiKey.value
-            if (key.isBlank()) {
-                val list = _transcripts.value.toMutableList()
-                list.add(0, TranscriptMessage(text = "Please set your Gemini API Key in Settings to connect Live WebSocket streaming.", isUser = false))
-                _transcripts.value = list
-                return
-            }
-            liveService.connect(key)
-        }
+        onOrbClicked()
     }
 
     fun toggleMute() {

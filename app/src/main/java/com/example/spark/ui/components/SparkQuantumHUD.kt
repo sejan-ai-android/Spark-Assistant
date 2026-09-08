@@ -124,10 +124,10 @@ fun SparkQuantumHUD(
                             .background(
                                 when (connectionState) {
                                     ConnectionState.STREAMING -> SparkGreen
-                                    ConnectionState.CONNECTING -> SparkAmber
                                     ConnectionState.CONNECTED -> SparkCyan
-                                    ConnectionState.ERROR -> SparkRed
-                                    ConnectionState.DISCONNECTED -> Color.Gray
+                                    ConnectionState.CONNECTING -> SparkAmber
+                                    ConnectionState.ERROR -> SparkAmber
+                                    ConnectionState.DISCONNECTED -> SparkAmber
                                 }
                             )
                     )
@@ -137,8 +137,8 @@ fun SparkQuantumHUD(
                             ConnectionState.STREAMING -> "LIVE PCM BIDI"
                             ConnectionState.CONNECTING -> "CONNECTING..."
                             ConnectionState.CONNECTED -> "CONNECTED"
-                            ConnectionState.ERROR -> "OFFLINE / REST"
-                            ConnectionState.DISCONNECTED -> "STANDBY"
+                            ConnectionState.ERROR -> "RECONNECTING..."
+                            ConnectionState.DISCONNECTED -> "ACTIVE (NO STANDBY)"
                         },
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -270,8 +270,8 @@ fun SparkQuantumHUD(
                 Text(
                     text = if (liveStats.activeTool != null) "⚙ Running: ${liveStats.activeTool}"
                            else if (liveStats.isSpeaking) "🔊 Spark Speaking"
-                           else if (isLive) "🎙 Listening (PCM 16kHz)"
-                           else "Tap Orb to Connect Live",
+                           else if (isLive) "🎙 Live VAD • 'Hey Spark'"
+                           else "⚡ Persistent Stream Active",
                     fontSize = 12.sp,
                     color = if (liveStats.activeTool != null) SparkAmber else Color(0xFFCBD5E1),
                     fontWeight = FontWeight.Medium

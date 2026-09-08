@@ -64,7 +64,7 @@ class SparkToolRegistry(
             examplePrompt = "\"Call Rahul.\""
         ),
         ToolDefinition(
-            name = "send_sms_message",
+            name = "send_sms",
             description = "Send an SMS text message to a contact or phone number.",
             parametersJson = """{"type":"OBJECT","properties":{"recipient":{"type":"STRING","description":"Contact name or phone number"},"message":{"type":"STRING","description":"SMS body text"}},"required":["recipient","message"]}""",
             examplePrompt = "\"Send SMS to Rahul: Arriving in 10 minutes.\""
@@ -189,8 +189,8 @@ class SparkToolRegistry(
                     val res = telephonyEngine.makeCall(recipient)
                     ToolExecutionResult(name, res.isSuccess, res.getOrElse { it.message ?: "Failed to place call" })
                 }
-                "send_sms_message" -> {
-                    val recipient = args.optString("recipient", "")
+                "send_sms", "send_sms_message" -> {
+                    val recipient = args.optString("recipient", args.optString("phoneNumber", ""))
                     val message = args.optString("message", "")
                     val res = telephonyEngine.sendSms(recipient, message)
                     ToolExecutionResult(name, res.isSuccess, res.getOrElse { it.message ?: "Failed to send SMS" })

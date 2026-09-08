@@ -11,8 +11,14 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -30,6 +36,7 @@ class SparkOverlayService : Service() {
         const val CHANNEL_ID = "spark_overlay_channel"
         const val NOTIFICATION_ID = 1001
         var isOverlayRunning = false
+        var onNetworkReconnectedListener: (() -> Unit)? = null
 
         fun startOverlay(context: Context) {
             val intent = Intent(context, SparkOverlayService::class.java)
@@ -48,17 +55,62 @@ class SparkOverlayService : Service() {
 
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         isOverlayRunning = true
+        acquireSystemLocks()
+        registerNetworkWatcher()
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildForegroundNotification())
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
             initFloatingBubble()
+        }
+    }
+
+    private fun acquireSystemLocks() {
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+            wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SparkAssist:VoiceServiceLock")?.apply {
+                setReferenceCounted(false)
+                acquire(30 * 60 * 1000L) // 30 min safe timeout with active renewal
+            }
+
+            val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            @Suppress("DEPRECATION")
+            wifiLock = wifiManager?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "SparkAssist:WifiLock")?.apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun registerNetworkWatcher() {
+        try {
+            connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    onNetworkReconnectedListener?.invoke()
+                }
+            }
+            networkCallback?.let {
+                connectivityManager?.registerNetworkCallback(request, it)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -192,6 +244,22 @@ class SparkOverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isOverlayRunning = false
+        onNetworkReconnectedListener = null
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            if (wifiLock?.isHeld == true) wifiLock?.release()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         overlayView?.let {
             try {
                 windowManager?.removeView(it)

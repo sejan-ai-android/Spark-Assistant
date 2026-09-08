@@ -124,6 +124,7 @@ fun SparkApp(viewModel: SparkViewModel = viewModel()) {
 
     LaunchedEffect(Unit) {
         viewModel.checkPermissions()
+        permissionLauncher.launch(permissionsToRequest)
     }
 
     Scaffold(
