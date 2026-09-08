@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer soundwave aura -->
+    <path
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M34,42 C30,48 30,60 34,66 M74,42 C78,48 78,60 74,66">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="30"
+                android:startY="42"
+                android:endX="78"
+                android:endY="66"
+                android:type="linear">
+                <item android:color="#38BDF8" android:offset="0.0" />
+                <item android:color="#818CF8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Secondary audio wave arc -->
+    <path
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M27,37 C21,46 21,62 27,71 M81,37 C87,46 87,62 81,71">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="21"
+                android:startY="37"
+                android:endX="87"
+                android:endY="71"
+                android:type="linear">
+                <item android:color="#00E5FF" android:offset="0.0" />
+                <item android:color="#A855F7" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Central Spark AI Energy Star / Diamond -->
+    <path
+        android:pathData="M54,26 C54,41 41,54 26,54 C41,54 54,67 54,82 C54,67 67,54 82,54 C67,54 54,41 54,26 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="26"
+                android:startY="26"
+                android:endX="82"
+                android:endY="82"
+                android:type="linear">
+                <item android:color="#00F0FF" android:offset="0.0" />
+                <item android:color="#7C3AED" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Inner Core Lightning Sparkle -->
+    <path
+        android:pathData="M54,37 C54,47 47,54 37,54 C47,54 54,61 54,71 C54,61 61,54 71,54 C61,54 54,47 54,37 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Center pulse dot -->
+    <path
+        android:pathData="M54,51 A3,3 0 1,0 54,57 A3,3 0 1,0 54,51 Z"
+        android:fillColor="#38BDF8" />
+</vector>

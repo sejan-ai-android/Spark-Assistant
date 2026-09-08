@@ -1,0 +1,166 @@
+name: Build & Release Signed APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare Signing Keystore
+        id: prepare-keystore
+        run: |
+          KEYSTORE_FILE="${{ github.workspace }}/my-upload-key.jks"
+          echo "KEYSTORE_PATH=$KEYSTORE_FILE" >> $GITHUB_ENV
+
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::notice ::Using provided KEYSTORE_BASE64 secret for release signing."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_FILE"
+            echo "STORE_PASSWORD=${{ secrets.STORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          elif [ -n "${{ secrets.SIGNING_KEY }}" ]; then
+            echo "::notice ::Using provided SIGNING_KEY secret for release signing."
+            echo "${{ secrets.SIGNING_KEY }}" | base64 -d > "$KEYSTORE_FILE"
+            echo "STORE_PASSWORD=${{ secrets.STORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          else
+            echo "::warning ::No KEYSTORE_BASE64 or SIGNING_KEY secret found. Generating self-signed release key for automated distribution."
+            DEFAULT_PASS="SparkAssistReleaseKey2026!"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE_FILE" \
+              -alias "upload" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$DEFAULT_PASS" \
+              -keypass "$DEFAULT_PASS" \
+              -dname "CN=SparkAssist, OU=Mobile, O=AIStudio, L=MountainView, ST=CA, C=US"
+            echo "STORE_PASSWORD=$DEFAULT_PASS" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=$DEFAULT_PASS" >> $GITHUB_ENV
+          fi
+
+      - name: Configure Secrets and Environment
+        run: |
+          if [ -f .env.example ] && [ ! -f .env ]; then
+            cp .env.example .env
+          fi
+          if [ -n "${{ secrets.GEMINI_API_KEY }}" ]; then
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+          fi
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Prepare Artifacts & Generate Checksums
+        id: prepare-artifacts
+        run: |
+          APK_SRC="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK_SRC" ]; then
+            echo "Error: Release APK not found at $APK_SRC"
+            exit 1
+          fi
+
+          VERSION_NAME="1.0"
+          BUILD_NUM="${{ github.run_number }}"
+          RELEASE_DIR="release-artifacts"
+          mkdir -p "$RELEASE_DIR"
+
+          DIST_NAME="SparkAssist-v${VERSION_NAME}-b${BUILD_NUM}-release.apk"
+          cp "$APK_SRC" "$RELEASE_DIR/$DIST_NAME"
+          cp "$APK_SRC" "$RELEASE_DIR/SparkAssist-release.apk"
+
+          cd "$RELEASE_DIR"
+          sha256sum "$DIST_NAME" > "${DIST_NAME}.sha256"
+          sha256sum "SparkAssist-release.apk" > "SparkAssist-release.apk.sha256"
+          cd ..
+
+          SHA256=$(sha256sum "$RELEASE_DIR/$DIST_NAME" | awk '{print $1}')
+          echo "apk_path=$RELEASE_DIR/$DIST_NAME" >> $GITHUB_OUTPUT
+          echo "apk_name=$DIST_NAME" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "version=v${VERSION_NAME}.${BUILD_NUM}" >> $GITHUB_OUTPUT
+
+      - name: Upload Build Artifact to Workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.prepare-artifacts.outputs.apk_name }}
+          path: release-artifacts/*
+          retention-days: 30
+
+      - name: Determine Tag Name
+        id: tag-name
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="${{ steps.prepare-artifacts.outputs.version }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag-name.outputs.tag }}
+          name: "Spark Assist Release ${{ steps.tag-name.outputs.tag }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## ✨ Spark Assist Release `${{ steps.tag-name.outputs.tag }}`
+            
+            Automated production build for commit `${{ github.sha }}`.
+
+            ### 📦 Download Assets
+            - **Signed APK**: [`${{ steps.prepare-artifacts.outputs.apk_name }}`](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag-name.outputs.tag }}/${{ steps.prepare-artifacts.outputs.apk_name }})
+            - **Universal Named APK**: [`SparkAssist-release.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag-name.outputs.tag }}/SparkAssist-release.apk)
+
+            ### 🔒 Integrity Checksum
+            ```text
+            SHA-256: ${{ steps.prepare-artifacts.outputs.sha256 }}
+            ```
+
+            ### 🚀 Highlights
+            - **Real-Time Voice Streaming**: Sub-second bidirectional voice loop powered by Gemini 3.5 Flash Lite (`BidiGenerateContent`).
+            - **Acoustic Echo Shielding**: Zero-latency speech interruption flush with automatic microphone shielding.
+            - **16 Native Tools**: Hardware toggles (Flashlight, Wi-Fi/BT/Location), Telephony (Calls, WhatsApp, SMS), Media control, Calendar, and App launch.
+            - **Core Memory Vault**: Offline-first Room database for context retention.
+            - **Floating HUD**: Draggable glassmorphic overlay for system-wide accessibility.
+          files: |
+            release-artifacts/*.apk
+            release-artifacts/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

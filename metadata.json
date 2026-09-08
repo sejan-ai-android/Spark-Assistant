@@ -1,0 +1,6 @@
+{
+  "name": "Spark Assistant",
+  "description": "Voice-first mobile AI assistant with real-time Gemini Live WebSocket streaming and native Android action execution.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
