@@ -69,6 +69,7 @@ fun SparkSettingsDialog(
     var isKeyVisible by remember { mutableStateOf(false) }
 
     val models = listOf(
+        "models/gemini-3.6-flash",
         "models/gemini-3.5-flash-lite",
         "models/gemini-3.1-flash-lite-preview",
         "gemini-2.5-flash"

@@ -104,7 +104,7 @@ class SparkViewModel(application: Application) : AndroidViewModel(application) {
     private val _apiKey = MutableStateFlow("")
     val apiKey: StateFlow<String> = _apiKey.asStateFlow()
 
-    private val _selectedModel = MutableStateFlow("models/gemini-3.5-flash-lite")
+    private val _selectedModel = MutableStateFlow("models/gemini-3.6-flash")
     val selectedModel: StateFlow<String> = _selectedModel.asStateFlow()
 
     init {

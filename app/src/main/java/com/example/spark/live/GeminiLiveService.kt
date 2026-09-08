@@ -42,7 +42,7 @@ class GeminiLiveService(
 
     companion object {
         const val LIVE_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-        const val DEFAULT_MODEL = "models/gemini-3.5-flash-lite"
+        const val DEFAULT_MODEL = "models/gemini-3.6-flash"
         const val SYSTEM_PROMPT = """You are Spark Assistant, a voice-first AI that stays actively connected to the user's Android phone at all times. You are NEVER in standby mode from a network perspective—your WebSocket is always open.
 Rules:
 1. Always respond with the appropriate tool call. Do not just chat unless the user explicitly asks a general knowledge question.
